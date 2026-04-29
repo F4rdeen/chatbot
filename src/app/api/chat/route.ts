@@ -10,6 +10,8 @@ Use words like: lah, leh, lor, meh, kan, boleh, tak apa, ayyo, macam mana, shiok
 Keep it casual, fun and authentic to Malaysian/Singaporean culture.`,
 };
 
+const VALID_LANGUAGES = new Set(["en", "ms", "ta", "mix"]);
+const MAX_MESSAGES = 50;
 const MODEL_ID = "HuggingFaceH4/zephyr-7b-beta";
 
 interface Message {
@@ -17,12 +19,25 @@ interface Message {
   content: string;
 }
 
+function isValidMessage(m: unknown): m is Message {
+  if (!m || typeof m !== "object") return false;
+  const msg = m as Record<string, unknown>;
+  return (
+    typeof msg.content === "string" &&
+    msg.content.trim().length > 0 &&
+    (msg.role === "user" || msg.role === "assistant" || msg.role === "system")
+  );
+}
+
 export async function POST(req: NextRequest) {
   let language = "en";
   try {
     const body = await req.json();
     const { messages } = body;
-    language = body.language ?? "en";
+    language =
+      typeof body.language === "string" && VALID_LANGUAGES.has(body.language)
+        ? body.language
+        : "en";
 
     if (!Array.isArray(messages)) {
       return NextResponse.json(
@@ -31,11 +46,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (messages.length > MAX_MESSAGES) {
+      return NextResponse.json(
+        { error: "Too many messages" },
+        { status: 400 }
+      );
+    }
+
+    const validMessages = messages.filter(isValidMessage);
+
     const systemPrompt =
       LANGUAGE_PROMPTS[language] ?? LANGUAGE_PROMPTS["en"];
 
     const systemMessage: Message = { role: "system", content: systemPrompt };
-    const fullMessages: Message[] = [systemMessage, ...messages];
+    const fullMessages: Message[] = [systemMessage, ...validMessages];
 
     const hfToken = process.env.HUGGINGFACE_API_KEY;
 
@@ -100,7 +124,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function getFallbackMessage(language: string): string {
+export function getFallbackMessage(language: string): string {
   const messages: Record<string, string> = {
     en: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment!",
     ms: "Maaf, saya menghadapi masalah sambungan sekarang. Sila cuba lagi sebentar!",

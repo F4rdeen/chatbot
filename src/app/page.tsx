@@ -3,13 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Language, LANGUAGES, Message, getLanguageConfig } from "@/lib/languages";
 import { speak, stopSpeaking } from "@/lib/speech";
-
-function generateId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2, 11);
-}
+import { generateId } from "@/lib/utils";
 
 export default function ChatPage() {
   const [language, setLanguage] = useState<Language>("en");

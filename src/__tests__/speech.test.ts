@@ -156,6 +156,22 @@ describe("speak", () => {
     const utterance: SpeechSynthesisUtterance = mockSpeak.mock.calls[0][0];
     expect(utterance.lang).toBe("en-US");
   });
+
+  it("uses a prefix-matched voice when no exact voice match exists", async () => {
+    // Provide a voice list without an exact "en-US" match, but with an "en-*" variant.
+    // speak("Test", "en") resolves voiceLang to "en-US"; findBestVoice will
+    // fall through the exact-match branch and succeed on the prefix-match branch.
+    mockGetVoices.mockReturnValue([{ lang: "en-AU", name: "English Australia" }]);
+
+    const { speak } = await import("@/lib/speech");
+    speak("Test", "en");
+
+    const utterance: SpeechSynthesisUtterance = mockSpeak.mock.calls[0][0];
+    // The utterance lang is always set from config.voiceLang
+    expect(utterance.lang).toBe("en-US");
+    // But the voice should have been matched by prefix to "en-AU"
+    expect(utterance.voice).toMatchObject({ lang: "en-AU" });
+  });
 });
 
 describe("stopSpeaking", () => {

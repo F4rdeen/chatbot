@@ -282,4 +282,158 @@ describe("MessageBubble", () => {
     });
     expect(speak).toHaveBeenCalled();
   });
+
+  it("toggles off speaking when Listen is clicked again on same message", async () => {
+    const { stopSpeaking } = await import("@/lib/speech");
+    render(<ChatPage />);
+
+    // First click starts speaking — button becomes "Stop speaking"
+    const listenBtn = screen.getByTitle("Listen");
+    await act(async () => {
+      fireEvent.click(listenBtn);
+    });
+    expect(screen.getByTitle("Stop speaking")).toBeInTheDocument();
+
+    // Second click on same message toggles it off
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Stop speaking"));
+    });
+    expect(screen.getByTitle("Listen")).toBeInTheDocument();
+    // stopSpeaking is called: once by the language useEffect on mount,
+    // then once per handleSpeak invocation (2 clicks = 2 more calls)
+    expect(stopSpeaking).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ─── Voice / SpeechRecognition ────────────────────────────────────────────────
+describe("Voice input (SpeechRecognition)", () => {
+  // Helper to create a lightweight SpeechRecognition mock
+  function makeMockRecognition() {
+    const recognition = {
+      lang: "",
+      interimResults: false,
+      maxAlternatives: 1,
+      onresult: null as ((e: unknown) => void) | null,
+      onerror: null as (() => void) | null,
+      onend: null as (() => void) | null,
+      start: jest.fn(),
+      stop: jest.fn(),
+    };
+    return recognition;
+  }
+
+  afterEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).SpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).webkitSpeechRecognition;
+  });
+
+  it("alerts when SpeechRecognition is not available", async () => {
+    window.alert = jest.fn();
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+    expect(window.alert).toHaveBeenCalledWith(
+      "Speech recognition is not supported in your browser."
+    );
+  });
+
+  it("starts listening and shows stop button when mic is clicked", async () => {
+    const recognition = makeMockRecognition();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).SpeechRecognition = jest.fn(() => recognition);
+
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+
+    expect(recognition.start).toHaveBeenCalled();
+    expect(screen.getByTitle("Stop listening")).toBeInTheDocument();
+  });
+
+  it("stops listening when stop button is clicked", async () => {
+    const recognition = makeMockRecognition();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).SpeechRecognition = jest.fn(() => recognition);
+
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Stop listening"));
+    });
+
+    expect(recognition.stop).toHaveBeenCalled();
+    expect(screen.getByTitle("Voice input")).toBeInTheDocument();
+  });
+
+  it("sets input to transcript when speech result arrives", async () => {
+    const recognition = makeMockRecognition();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).SpeechRecognition = jest.fn(() => recognition);
+
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+
+    await act(async () => {
+      recognition.onresult?.({ results: [[{ transcript: "Voice text" }]] });
+    });
+
+    expect(
+      screen.getByPlaceholderText("Type your message in English…")
+    ).toHaveValue("Voice text");
+    // isListening should reset to false
+    expect(screen.getByTitle("Voice input")).toBeInTheDocument();
+  });
+
+  it("stops listening on recognition error", async () => {
+    const recognition = makeMockRecognition();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).SpeechRecognition = jest.fn(() => recognition);
+
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+    await act(async () => {
+      recognition.onerror?.();
+    });
+
+    expect(screen.getByTitle("Voice input")).toBeInTheDocument();
+  });
+
+  it("stops listening when recognition ends naturally", async () => {
+    const recognition = makeMockRecognition();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).SpeechRecognition = jest.fn(() => recognition);
+
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+    await act(async () => {
+      recognition.onend?.();
+    });
+
+    expect(screen.getByTitle("Voice input")).toBeInTheDocument();
+  });
+
+  it("uses webkitSpeechRecognition as fallback", async () => {
+    const recognition = makeMockRecognition();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).webkitSpeechRecognition = jest.fn(() => recognition);
+
+    render(<ChatPage />);
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Voice input"));
+    });
+
+    expect(recognition.start).toHaveBeenCalled();
+  });
 });

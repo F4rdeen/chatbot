@@ -282,4 +282,26 @@ describe("POST /api/chat", () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
   });
+
+  it("includes assistant messages in the prompt context", async () => {
+    global.fetch = mockFetchSuccess("Follow-up reply");
+    const req = makeRequest({
+      messages: [
+        { role: "assistant", content: "How can I help?" },
+        { role: "user", content: "Tell me more" },
+      ],
+      language: "en",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await parseResponse(res);
+    expect(body.reply).toBe("Follow-up reply");
+
+    // Verify both assistant and user messages were included in the prompt
+    const sentBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(sentBody.inputs).toContain("How can I help?");
+    expect(sentBody.inputs).toContain("Tell me more");
+    // The assistant message should use the <|assistant|> ChatML tag
+    expect(sentBody.inputs).toContain("<|assistant|>");
+  });
 });

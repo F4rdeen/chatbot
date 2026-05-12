@@ -2,8 +2,6 @@
 
 import { Language, getLanguageConfig } from "./languages";
 
-let currentUtterance: SpeechSynthesisUtterance | null = null;
-
 /**
  * Speak the given text using the Web Speech API.
  * Returns a cleanup function to cancel speech.
@@ -20,7 +18,6 @@ export function speak(
 
   const config = getLanguageConfig(language);
   const utterance = new SpeechSynthesisUtterance(text);
-  currentUtterance = utterance;
 
   // Try to find a matching voice
   const voices = window.speechSynthesis.getVoices();

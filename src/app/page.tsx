@@ -20,6 +20,7 @@ export default function ChatPage() {
 
   // Add greeting when language changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([
       {
         id: generateId(),

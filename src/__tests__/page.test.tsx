@@ -299,9 +299,8 @@ describe("MessageBubble", () => {
       fireEvent.click(screen.getByTitle("Stop speaking"));
     });
     expect(screen.getByTitle("Listen")).toBeInTheDocument();
-    // stopSpeaking is called: once by the language useEffect on mount,
-    // then once per handleSpeak invocation (2 clicks = 2 more calls)
-    expect(stopSpeaking).toHaveBeenCalledTimes(3);
+    // stopSpeaking is called once per handleSpeak invocation (2 clicks)
+    expect(stopSpeaking).toHaveBeenCalledTimes(2);
   });
 });
 

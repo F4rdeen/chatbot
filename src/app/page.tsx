@@ -5,9 +5,22 @@ import { Language, LANGUAGES, Message, getLanguageConfig } from "@/lib/languages
 import { speak, stopSpeaking } from "@/lib/speech";
 import { generateId } from "@/lib/utils";
 
+function buildGreetingMessage(language: Language): Message {
+  const config = getLanguageConfig(language);
+  return {
+    id: generateId(),
+    role: "assistant",
+    content: config.greeting,
+    language,
+    timestamp: new Date(),
+  };
+}
+
 export default function ChatPage() {
   const [language, setLanguage] = useState<Language>("en");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => [
+    buildGreetingMessage("en"),
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState<string | null>(null);
@@ -18,23 +31,14 @@ export default function ChatPage() {
 
   const langConfig = getLanguageConfig(language);
 
-  // Add greeting when language changes
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMessages([
-      {
-        id: generateId(),
-        role: "assistant",
-        content: langConfig.greeting,
-        language,
-        timestamp: new Date(),
-      },
-    ]);
+  function handleLanguageChange(nextLanguage: Language) {
+    if (nextLanguage === language) return;
+    setLanguage(nextLanguage);
+    setMessages([buildGreetingMessage(nextLanguage)]);
     setInput("");
     stopSpeaking();
     setSpeaking(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -180,7 +184,7 @@ export default function ChatPage() {
           {LANGUAGES.map((lang) => (
             <button
               key={lang.code}
-              onClick={() => setLanguage(lang.code)}
+              onClick={() => handleLanguageChange(lang.code)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
                 language === lang.code
                   ? "bg-indigo-600 text-white shadow-md scale-105"
